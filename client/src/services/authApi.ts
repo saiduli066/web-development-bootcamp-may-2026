@@ -11,7 +11,7 @@ export const registerUser = async (payload: {
   email: string;
   password: string;
 }) => {
-  const { data } = await api.post<AuthResponse>("/auth/register", payload);
+  const { data } = await api.post<AuthResponse>("/api/auth/register", payload);
   return data;
 };
 
@@ -19,20 +19,20 @@ export const loginUser = async (payload: {
   email: string;
   password: string;
 }) => {
-  const { data } = await api.post<AuthResponse>("/auth/login", payload);
+  const { data } = await api.post<AuthResponse>("/api/auth/login", payload);
   return data;
 };
 
 export const refreshSession = async () => {
-  const { data } = await api.post<AuthResponse>("/auth/refresh");
+  const { data } = await api.post<AuthResponse>("/api/auth/refresh");
   return data;
 };
 
 export const getMe = async () => {
-  const { data } = await api.get<{ user: User }>("/auth/me");
+  const { data } = await api.get<{ user: User }>("/api/auth/me");
   return data.user;
 };
 
 export const logoutUser = async () => {
-  await api.post("/auth/logout");
+  await api.post("/api/auth/logout");
 };

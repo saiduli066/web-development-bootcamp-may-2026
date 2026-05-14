@@ -9,7 +9,7 @@ const App = () => {
 
   useEffect(() => {
     initialize();
-  }, [initialize]);
+  }, []); // Empty dependency array - run only once on mount
 
   useSocketEvents();
 

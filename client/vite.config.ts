@@ -9,4 +9,7 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  optimizeDeps: {
+    exclude: ["chunk-DC5AMYBS", "chunk-HSUUC2QV", "chunk-A7ECLLTJ"],
+  },
 });

@@ -28,10 +28,13 @@ api.interceptors.response.use(
       _retry?: boolean;
     };
 
-    if (error.response?.status === 401 && !originalRequest?._retry) {
+    // Don't retry refresh endpoint itself to avoid infinite loop
+    const isRefreshEndpoint = originalRequest.url?.includes("/api/auth/refresh");
+    
+    if (error.response?.status === 401 && !originalRequest?._retry && !isRefreshEndpoint) {
       originalRequest._retry = true;
       try {
-        const response = await refreshClient.post("/auth/refresh");
+        const response = await refreshClient.post("/api/auth/refresh");
         const newToken = (response.data as { accessToken: string }).accessToken;
         setAccessToken(newToken);
         originalRequest.headers.Authorization = `Bearer ${newToken}`;
