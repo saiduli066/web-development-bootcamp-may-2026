@@ -2,6 +2,27 @@ import { create } from "zustand";
 import type { Conversation } from "../types/conversation";
 import type { Message } from "../types/message";
 
+const normalizeMessage = (message: Message): Message => {
+  const deliveredTo = message.deliveredTo?.length
+    ? message.deliveredTo
+    : [message.senderId];
+  const seenBy = message.seenBy?.length ? message.seenBy : [message.senderId];
+
+  return {
+    ...message,
+    deliveredTo,
+    seenBy,
+  };
+};
+
+const includeUser = (ids: string[] | undefined, userId: string) => {
+  const current = ids || [];
+  if (current.includes(userId)) {
+    return current;
+  }
+  return [...current, userId];
+};
+
 type ChatState = {
   conversations: Conversation[];
   activeConversationId: string | null;
@@ -13,7 +34,16 @@ type ChatState = {
   setMessages: (conversationId: string, messages: Message[]) => void;
   updateMessage: (conversationId: string, message: Message) => void;
   replaceMessage: (conversationId: string, tempId: string, message: Message) => void;
-  markRead: (conversationId: string, messageId: string) => void;
+  applyDelivered: (
+    conversationId: string,
+    messageIds: string[],
+    userId: string,
+  ) => void;
+  applySeen: (
+    conversationId: string,
+    messageIds: string[],
+    userId: string,
+  ) => void;
   setTyping: (
     conversationId: string,
     userId: string,
@@ -35,7 +65,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({
       messages: {
         ...get().messages,
-        [conversationId]: [message, ...current],
+        [conversationId]: [normalizeMessage(message), ...current],
       },
     });
   },
@@ -43,7 +73,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({
       messages: {
         ...get().messages,
-        [conversationId]: messages,
+        [conversationId]: messages.map(normalizeMessage),
       },
     });
   },
@@ -53,7 +83,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       messages: {
         ...get().messages,
         [conversationId]: current.map((item) =>
-          item._id === message._id ? message : item,
+          item._id === message._id ? normalizeMessage(message) : item,
         ),
       },
     });
@@ -64,18 +94,46 @@ export const useChatStore = create<ChatState>((set, get) => ({
       messages: {
         ...get().messages,
         [conversationId]: current.map((item) =>
-          item._id === tempId ? message : item,
+          item._id === tempId ? normalizeMessage(message) : item,
         ),
       },
     });
   },
-  markRead: (conversationId, messageId) => {
+  applyDelivered: (conversationId, messageIds, userId) => {
+    const targetIds = new Set(messageIds);
+    if (!targetIds.size) return;
+
     const current = get().messages[conversationId] || [];
     set({
       messages: {
         ...get().messages,
         [conversationId]: current.map((item) =>
-          item._id === messageId ? { ...item, status: "read" } : item,
+          targetIds.has(item._id)
+            ? {
+                ...item,
+                deliveredTo: includeUser(item.deliveredTo, userId),
+              }
+            : item,
+        ),
+      },
+    });
+  },
+  applySeen: (conversationId, messageIds, userId) => {
+    const targetIds = new Set(messageIds);
+    if (!targetIds.size) return;
+
+    const current = get().messages[conversationId] || [];
+    set({
+      messages: {
+        ...get().messages,
+        [conversationId]: current.map((item) =>
+          targetIds.has(item._id)
+            ? {
+                ...item,
+                deliveredTo: includeUser(item.deliveredTo, userId),
+                seenBy: includeUser(item.seenBy, userId),
+              }
+            : item,
         ),
       },
     });

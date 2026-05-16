@@ -7,7 +7,7 @@ import { User } from "../models/User.js";
 
 const listConversations = async (userId) =>
   Conversation.find({ participants: userId })
-    .populate("participants", "name avatar isOnline lastSeen")
+    .populate("participants", "name username avatar isOnline lastSeen")
     .sort({ updatedAt: -1 });
 
 const findOrCreateConversation = async (userId, participantId) => {
@@ -23,7 +23,7 @@ const findOrCreateConversation = async (userId, participantId) => {
   const existing = await Conversation.findOne({
     participants: { $all: [userId, participantId] },
     $expr: { $eq: [{ $size: "$participants" }, 2] }
-  }).populate("participants", "name avatar isOnline lastSeen");
+  }).populate("participants", "name username avatar isOnline lastSeen");
 
   if (existing) {
     return existing;
@@ -37,14 +37,14 @@ const findOrCreateConversation = async (userId, participantId) => {
     }
   });
 
-  return conversation.populate("participants", "name avatar isOnline lastSeen");
+  return conversation.populate("participants", "name username avatar isOnline lastSeen");
 };
 
 const getConversationById = async (userId, conversationId) => {
   const conversation = await Conversation.findOne({
     _id: conversationId,
     participants: userId
-  }).populate("participants", "name avatar isOnline lastSeen");
+  }).populate("participants", "name username avatar isOnline lastSeen");
 
   if (!conversation) {
     throw new ApiError(404, "Conversation not found");

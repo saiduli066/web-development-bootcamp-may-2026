@@ -20,7 +20,7 @@ const ProfilePage = lazy(() =>
 );
 
 const AppRouter = () => (
-  <BrowserRouter>
+  <BrowserRouter future={{ v7_relativeSplatPath: true }}>
     <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading...</div>}>
       <Routes>
         <Route

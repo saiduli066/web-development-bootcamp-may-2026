@@ -1,15 +1,27 @@
 import { ApiError } from "../utils/apiError.js";
 import { User } from "../models/User.js";
 import { uploadBuffer } from "../utils/cloudinaryUpload.js";
+import { normalizeUsername } from "../utils/username.js";
 
 const searchUsers = async (query, userId) =>
   User.find({ $text: { $search: query }, _id: { $ne: userId } })
-    .select("name avatar isOnline lastSeen")
+    .select("name username email avatar isOnline lastSeen")
     .limit(20);
 
 const getUserById = async (id) => {
   const user = await User.findById(id).select(
-    "name avatar bio isOnline lastSeen"
+    "name username email avatar bio isOnline lastSeen createdAt updatedAt"
+  );
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+  return user;
+};
+
+const getUserByUsername = async (username) => {
+  const normalized = normalizeUsername(username);
+  const user = await User.findOne({ username: normalized }).select(
+    "name username email avatar bio isOnline lastSeen createdAt updatedAt"
   );
   if (!user) {
     throw new ApiError(404, "User not found");
@@ -18,9 +30,31 @@ const getUserById = async (id) => {
 };
 
 const updateProfile = async (userId, updates) => {
-  const user = await User.findByIdAndUpdate(userId, updates, {
+  const payload = {};
+  if (typeof updates.name === "string") {
+    payload.name = updates.name;
+  }
+  if (typeof updates.bio === "string") {
+    payload.bio = updates.bio;
+  }
+  if (typeof updates.username === "string") {
+    const normalized = normalizeUsername(updates.username);
+    if (!normalized) {
+      throw new ApiError(400, "Username is required");
+    }
+    const existing = await User.findOne({
+      username: normalized,
+      _id: { $ne: userId }
+    });
+    if (existing) {
+      throw new ApiError(409, "Username already in use");
+    }
+    payload.username = normalized;
+  }
+
+  const user = await User.findByIdAndUpdate(userId, payload, {
     new: true
-  }).select("name avatar bio isOnline lastSeen");
+  }).select("name username email avatar bio isOnline lastSeen createdAt updatedAt");
 
   if (!user) {
     throw new ApiError(404, "User not found");
@@ -50,4 +84,10 @@ const updateAvatar = async (userId, file) => {
   return user;
 };
 
-export { searchUsers, getUserById, updateProfile, updateAvatar };
+export {
+  searchUsers,
+  getUserById,
+  getUserByUsername,
+  updateProfile,
+  updateAvatar
+};

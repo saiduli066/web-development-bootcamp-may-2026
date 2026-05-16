@@ -2,13 +2,15 @@ import { useEffect } from "react";
 import { useSocketStore } from "../store/socketStore";
 import { useChatStore } from "../store/chatStore";
 import { useCallStore } from "../store/callStore";
+import { useAuthStore } from "../store/authStore";
 
 const useSocketEvents = () => {
   const socket = useSocketStore((state) => state.socket);
   const addMessage = useChatStore((state) => state.addMessage);
+  const applyDelivered = useChatStore((state) => state.applyDelivered);
+  const applySeen = useChatStore((state) => state.applySeen);
   const updateConversation = useChatStore((state) => state.updateConversation);
   const setTyping = useChatStore((state) => state.setTyping);
-  const markRead = useChatStore((state) => state.markRead);
   const receiveIncomingCall = useCallStore(
     (state) => state.receiveIncomingCall,
   );
@@ -25,6 +27,37 @@ const useSocketEvents = () => {
       if (conversation) {
         updateConversation(conversation);
       }
+
+      const currentUserId = useAuthStore.getState().user?._id;
+      if (!currentUserId || message.senderId === currentUserId) {
+        return;
+      }
+
+      socket.emit("message:delivered", {
+        conversationId: message.conversationId,
+        messageIds: [message._id],
+      });
+
+      const activeConversationId = useChatStore.getState().activeConversationId;
+      if (activeConversationId === message.conversationId) {
+        socket.emit("message:seen", {
+          conversationId: message.conversationId,
+          messageIds: [message._id],
+        });
+      }
+    });
+
+    socket.on("message:status", ({ state, conversationId, messageIds, userId }) => {
+      if (!conversationId || !Array.isArray(messageIds) || !userId) {
+        return;
+      }
+      if (state === "seen") {
+        applySeen(conversationId, messageIds, userId);
+        return;
+      }
+      if (state === "delivered") {
+        applyDelivered(conversationId, messageIds, userId);
+      }
     });
 
     socket.on("conversation:update", ({ conversation }) => {
@@ -39,10 +72,6 @@ const useSocketEvents = () => {
 
     socket.on("user:stopTyping", ({ userId, conversationId }) => {
       setTyping(conversationId, userId, false);
-    });
-
-    socket.on("message:read", ({ messageId, conversationId }) => {
-      markRead(conversationId, messageId);
     });
 
     socket.on("call:initiated", ({ callId }) => {
@@ -73,10 +102,10 @@ const useSocketEvents = () => {
 
     return () => {
       socket.off("message:new");
+      socket.off("message:status");
       socket.off("conversation:update");
       socket.off("user:typing");
       socket.off("user:stopTyping");
-      socket.off("message:read");
       socket.off("call:initiated");
       socket.off("call:incoming");
       socket.off("call:accepted");
@@ -87,9 +116,10 @@ const useSocketEvents = () => {
   }, [
     socket,
     addMessage,
+    applyDelivered,
+    applySeen,
     updateConversation,
     setTyping,
-    markRead,
     receiveIncomingCall,
     setCallId,
     handleCallAccepted,

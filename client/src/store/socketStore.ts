@@ -7,7 +7,7 @@ type SocketState = {
   socket: Socket | null;
   connect: () => void;
   disconnect: () => void;
-  emit: (event: string, payload?: unknown) => void;
+  emit: (event: string, payload?: unknown, callback?: (...args: any[]) => void) => void;
 };
 
 export const useSocketStore = create<SocketState>((set, get) => ({
@@ -25,10 +25,10 @@ export const useSocketStore = create<SocketState>((set, get) => ({
       set({ socket: null });
     }
   },
-  emit: (event, payload) => {
+  emit: (event, payload, callback) => {
     const socket = get().socket;
     if (socket) {
-      socket.emit(event, payload);
+      socket.emit(event, payload, callback);
     }
   },
 }));

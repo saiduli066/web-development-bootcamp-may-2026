@@ -5,7 +5,8 @@ export type Message = {
   type: "text" | "image" | "video" | "file" | "audio" | "call";
   content?: string;
   attachmentId?: string;
-  status?: "sent" | "delivered" | "read";
+  deliveredTo?: string[];
+  seenBy?: string[];
   replyTo?: string;
   createdAt: string;
 };

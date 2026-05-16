@@ -2,7 +2,8 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import {
   getMessages,
   sendMessage,
-  markRead,
+  markMessagesSeen,
+  markSingleMessageSeen,
   deleteMessage
 } from "../services/messageService.js";
 
@@ -30,8 +31,17 @@ const create = asyncHandler(async (req, res) => {
 });
 
 const read = asyncHandler(async (req, res) => {
-  const message = await markRead(req.params.id, req.user.id);
+  const message = await markSingleMessageSeen(req.params.id, req.user.id);
   res.json({ message });
+});
+
+const seen = asyncHandler(async (req, res) => {
+  const payload = await markMessagesSeen({
+    conversationId: req.params.conversationId,
+    userId: req.user.id,
+    messageIds: req.body.messageIds,
+  });
+  res.json({ conversation: payload.conversation });
 });
 
 const remove = asyncHandler(async (req, res) => {
@@ -39,4 +49,4 @@ const remove = asyncHandler(async (req, res) => {
   res.status(204).send();
 });
 
-export { list, create, read, remove };
+export { list, create, read, seen, remove };

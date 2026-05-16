@@ -12,13 +12,27 @@ const userIdParamSchema = z.object({
   })
 });
 
+const usernameParamSchema = z.object({
+  params: z.object({
+    username: z
+      .string()
+      .min(2, "Username is required")
+      .regex(/^@?[a-z0-9._-]+$/i, "Invalid username")
+  })
+});
+
 const updateProfileSchema = z.object({
   body: z
     .object({
       name: z.string().min(2).optional(),
-      bio: z.string().max(160).optional()
+      bio: z.string().max(160).optional(),
+      username: z
+        .string()
+        .min(2)
+        .regex(/^@?[a-z0-9._-]+$/i, "Invalid username")
+        .optional()
     })
-    .refine((data) => data.name || data.bio, {
+    .refine((data) => data.name || data.bio || data.username, {
       message: "Provide at least one field to update"
     })
 });
@@ -30,6 +44,7 @@ const avatarSchema = z.object({
 export {
   searchUsersSchema,
   userIdParamSchema,
+  usernameParamSchema,
   updateProfileSchema,
   avatarSchema
 };

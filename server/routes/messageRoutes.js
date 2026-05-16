@@ -4,9 +4,16 @@ import { validate } from "../middleware/validate.js";
 import {
   conversationIdParamSchema,
   sendMessageSchema,
-  messageIdParamSchema
+  messageIdParamSchema,
+  seenMessagesSchema,
 } from "../validators/messages.js";
-import { list, create, read, remove } from "../controllers/messageController.js";
+import {
+  list,
+  create,
+  read,
+  seen,
+  remove,
+} from "../controllers/messageController.js";
 
 const messageRoutes = express.Router();
 
@@ -21,6 +28,12 @@ messageRoutes.post(
   auth,
   validate(sendMessageSchema),
   create
+);
+messageRoutes.patch(
+  "/:conversationId/seen",
+  auth,
+  validate(seenMessagesSchema),
+  seen,
 );
 messageRoutes.patch("/:id/read", auth, validate(messageIdParamSchema), read);
 messageRoutes.delete("/:id", auth, validate(messageIdParamSchema), remove);

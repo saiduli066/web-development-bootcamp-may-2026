@@ -6,7 +6,8 @@
   "main": "server.js",
   "scripts": {
     "dev": "nodemon server.js",
-    "start": "node server.js"
+    "start": "node server.js",
+    "migrate:message-receipts": "node ./scripts/migrateMessageReceipts.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",

@@ -18,6 +18,13 @@ const userSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
+    username: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+    },
     passwordHash: { type: String, required: true },
     avatar: { type: avatarSchema, default: () => ({}) },
     bio: { type: String, default: "" },
@@ -28,7 +35,7 @@ const userSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-userSchema.index({ name: "text" });
+userSchema.index({ name: "text", username: "text", email: "text" });
 
 const User = mongoose.model("User", userSchema);
 

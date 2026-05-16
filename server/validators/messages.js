@@ -35,4 +35,18 @@ const messageIdParamSchema = z.object({
   })
 });
 
-export { conversationIdParamSchema, sendMessageSchema, messageIdParamSchema };
+const seenMessagesSchema = z.object({
+  params: z.object({
+    conversationId: z.string().min(1, "Conversation id is required")
+  }),
+  body: z.object({
+    messageIds: z.array(z.string().min(1)).optional()
+  })
+});
+
+export {
+  conversationIdParamSchema,
+  sendMessageSchema,
+  messageIdParamSchema,
+  seenMessagesSchema,
+};

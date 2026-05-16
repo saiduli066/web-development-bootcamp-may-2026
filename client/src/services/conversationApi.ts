@@ -3,14 +3,14 @@ import type { Conversation } from "../types/conversation";
 
 export const fetchConversations = async () => {
   const { data } = await api.get<{ conversations: Conversation[] }>(
-    "/conversations",
+    "/api/conversations",
   );
   return data.conversations;
 };
 
 export const createConversation = async (participantId: string) => {
   const { data } = await api.post<{ conversation: Conversation }>(
-    "/conversations",
+    "/api/conversations",
     {
       participantId,
     },
@@ -20,11 +20,11 @@ export const createConversation = async (participantId: string) => {
 
 export const fetchConversation = async (id: string) => {
   const { data } = await api.get<{ conversation: Conversation }>(
-    `/conversations/${id}`,
+    `/api/conversations/${id}`,
   );
   return data.conversation;
 };
 
 export const deleteConversation = async (id: string) => {
-  await api.delete(`/conversations/${id}`);
+  await api.delete(`/api/conversations/${id}`);
 };

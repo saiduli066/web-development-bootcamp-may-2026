@@ -1,4 +1,5 @@
 import { ApiError } from "../utils/apiError.js";
+import mongoose from "mongoose";
 import { Conversation } from "../models/Conversation.js";
 import { Message } from "../models/Message.js";
 
@@ -11,6 +12,32 @@ const ensureParticipant = async (conversationId, userId) => {
     throw new ApiError(404, "Conversation not found");
   }
   return conversation;
+};
+
+const toObjectIds = (ids = []) =>
+  ids
+    .filter((id) => mongoose.isValidObjectId(id))
+    .map((id) => new mongoose.Types.ObjectId(id));
+
+const buildStatusTargets = (messages) => {
+  const targets = new Map();
+
+  messages.forEach((message) => {
+    const senderId = message.senderId.toString();
+    const conversationId = message.conversationId.toString();
+    const key = `${senderId}:${conversationId}`;
+
+    const existing = targets.get(key) || {
+      senderId,
+      conversationId,
+      messageIds: [],
+    };
+
+    existing.messageIds.push(message.id);
+    targets.set(key, existing);
+  });
+
+  return Array.from(targets.values());
 };
 
 const getMessages = async ({ conversationId, userId, cursor, limit = 20 }) => {
@@ -47,7 +74,8 @@ const sendMessage = async ({
     content: content || "",
     attachmentId: attachmentId || null,
     replyTo: replyTo || null,
-    status: "sent"
+    deliveredTo: [senderId],
+    seenBy: [senderId],
   });
 
   const preview =
@@ -75,23 +103,108 @@ const sendMessage = async ({
   return { message, conversation };
 };
 
-const markRead = async (messageId, userId) => {
+const markMessagesDelivered = async ({ conversationId, userId, messageIds }) => {
+  await ensureParticipant(conversationId, userId);
+
+  const normalizedIds = toObjectIds(messageIds || []);
+  const query = {
+    conversationId,
+    senderId: { $ne: userId },
+    deliveredTo: { $ne: userId },
+  };
+
+  if (normalizedIds.length) {
+    query._id = { $in: normalizedIds };
+  }
+
+  const pending = await Message.find(query).select("_id senderId conversationId");
+  if (!pending.length) {
+    return [];
+  }
+
+  await Message.updateMany(
+    { _id: { $in: pending.map((message) => message._id) } },
+    { $addToSet: { deliveredTo: userId } },
+  );
+
+  return buildStatusTargets(pending);
+};
+
+const markMessagesSeen = async ({ conversationId, userId, messageIds }) => {
+  const conversation = await ensureParticipant(conversationId, userId);
+
+  const normalizedIds = toObjectIds(messageIds || []);
+  const query = {
+    conversationId,
+    senderId: { $ne: userId },
+    seenBy: { $ne: userId },
+  };
+
+  if (normalizedIds.length) {
+    query._id = { $in: normalizedIds };
+  }
+
+  const pending = await Message.find(query).select("_id senderId conversationId");
+  if (pending.length) {
+    await Message.updateMany(
+      { _id: { $in: pending.map((message) => message._id) } },
+      { $addToSet: { seenBy: userId, deliveredTo: userId } },
+    );
+  }
+
+  const key = userId.toString();
+  const unreadCounts = conversation.unreadCounts || new Map();
+  if ((unreadCounts.get(key) || 0) !== 0) {
+    unreadCounts.set(key, 0);
+    conversation.unreadCounts = unreadCounts;
+    await conversation.save();
+  }
+
+  return {
+    targets: buildStatusTargets(pending),
+    conversation,
+  };
+};
+
+const markSingleMessageSeen = async (messageId, userId) => {
   const message = await Message.findById(messageId);
   if (!message) {
     throw new ApiError(404, "Message not found");
   }
 
-  const conversation = await ensureParticipant(message.conversationId, userId);
-  message.status = "read";
-  await message.save();
+  await markMessagesSeen({
+    conversationId: message.conversationId,
+    userId,
+    messageIds: [messageId],
+  });
 
-  const key = userId.toString();
-  const unreadCounts = conversation.unreadCounts || new Map();
-  unreadCounts.set(key, 0);
-  conversation.unreadCounts = unreadCounts;
-  await conversation.save();
+  return Message.findById(messageId);
+};
 
-  return message;
+const markPendingDeliveredOnReconnect = async (userId) => {
+  const conversations = await Conversation.find({ participants: userId }).select("_id");
+  const conversationIds = conversations.map((conversation) => conversation._id);
+
+  if (!conversationIds.length) {
+    return [];
+  }
+
+  const pending = await Message.find({
+    conversationId: { $in: conversationIds },
+    senderId: { $ne: userId },
+    deliveredTo: { $ne: userId },
+  }).select("_id senderId conversationId");
+
+  if (!pending.length) {
+    return [];
+  }
+
+  await Message.updateMany(
+    { _id: { $in: pending.map((message) => message._id) } },
+    { $addToSet: { deliveredTo: userId } },
+  );
+
+  return buildStatusTargets(pending);
 };
 
 const deleteMessage = async (messageId, userId) => {
@@ -130,4 +243,12 @@ const deleteMessage = async (messageId, userId) => {
   }
 };
 
-export { getMessages, sendMessage, markRead, deleteMessage };
+export {
+  getMessages,
+  sendMessage,
+  markMessagesDelivered,
+  markMessagesSeen,
+  markSingleMessageSeen,
+  markPendingDeliveredOnReconnect,
+  deleteMessage,
+};
